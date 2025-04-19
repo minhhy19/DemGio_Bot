@@ -40,6 +40,7 @@ const db = new Low(adapter, { shifts: {} });
             const today = new Date().toISOString().split('T')[0];
 
             // Log thời gian và nội dung tin nhắn
+            console.log('update', update);
             const now = new Date().toLocaleString('vi-VN', { timeZone: 'Asia/Ho_Chi_Minh' });
             console.log(`[${now}] Tin nhắn từ ${username}: ${msg}`);
 
