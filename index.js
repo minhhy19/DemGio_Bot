@@ -4,6 +4,7 @@ import http from 'http';
 import { Low } from 'lowdb';
 import { JSONFile } from 'lowdb/node';
 import _ from 'lodash';
+import moment from 'moment-timezone';
 
 dotenv.config();
 
@@ -53,7 +54,7 @@ const db = new Low(adapter, { shifts: {} });
               db.data.shifts[today] = db.data.shifts[today] || {};
               db.data.shifts[today][username] = shiftTime;
               await db.write();
-              await sendMessage(chatId, `✅ Đã lưu giờ chốt ca của bạn là ${shiftTime}`);
+              await sendMessage(chatId, `✅ Đã lưu giờ chốt ca của ${username} là ${shiftTime}`);
               return res.end('ok');
             }
 
@@ -65,10 +66,9 @@ const db = new Low(adapter, { shifts: {} });
                 return res.end('ok');
               }
               const [h, m] = shiftTime.split(':').map(Number);
-              const now = new Date();
-              const shiftDate = new Date();
-              shiftDate.setHours(h, m, 0, 0);
-              const diff = shiftDate - now;
+              const now = moment();
+              const shiftDate = moment.tz({ hour: h, minute: m }, 'Asia/Ho_Chi_Minh');
+              const diff = shiftDate.diff(now);
 
               if (diff <= 0) {
                 await sendMessage(chatId, '🎉 Đã tới giờ về rồi!');
