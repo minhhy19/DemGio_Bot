@@ -3,7 +3,6 @@ import dotenv from 'dotenv';
 import http from 'http';
 import { Low } from 'lowdb';
 import { JSONFile } from 'lowdb/node';
-import _ from 'lodash';
 import moment from 'moment-timezone';
 
 dotenv.config();
@@ -11,6 +10,7 @@ dotenv.config();
 const TOKEN = process.env.BOT_TOKEN;
 const API = `https://api.telegram.org/bot${TOKEN}`;
 const PORT = process.env.PORT || 3000;
+const TIME_ZONE = 'Asia/Ho_Chi_Minh';
 
 // Khởi tạo lowdb
 const adapter = new JSONFile('db.json');
@@ -37,11 +37,22 @@ const db = new Low(adapter, { shifts: {} });
             const msg = update.message?.text?.trim() || '';
             const chatId = update.message?.chat?.id;
             const username = update.message?.from?.username || update.message?.from?.first_name || 'Unknown';
-            const today = new Date().toISOString().split('T')[0];
+            const today = moment().tz(TIME_ZONE).format('YYYY-MM-DD');
 
             // Log thời gian và tin nhắn
-            const now = new Date().toLocaleString('vi-VN', { timeZone: 'Asia/Ho_Chi_Minh' });
+            const now = moment().tz(TIME_ZONE).format('DD/MM/YYYY, HH:mm:ss');
             console.log(`[${now}] Tin nhắn từ ${username}: "${msg}"`);
+
+            // Kiểm tra thứ Bảy/Chủ Nhật
+            const dayOfWeek = moment().tz(TIME_ZONE).day(); // 0 = CN, 6 = T7
+            if (dayOfWeek === 0) {
+              await sendMessage(chatId, '🏖️ Hôm nay Chủ Nhật không làm!');
+              return res.end('ok');
+            }
+            if (dayOfWeek === 6) {
+              await sendMessage(chatId, '🏖️ Hôm nay thứ Bảy không làm!');
+              return res.end('ok');
+            }
 
             // Xử lý lệnh /ca
             if (msg.startsWith('/ca')) {
@@ -54,30 +65,37 @@ const db = new Low(adapter, { shifts: {} });
               db.data.shifts[today] = db.data.shifts[today] || {};
               db.data.shifts[today][username] = shiftTime;
               await db.write();
-              await sendMessage(chatId, `✅ Đã lưu giờ chốt ca của ${username} là ${shiftTime}`);
+              await sendMessage(chatId, `✅ Đã lưu giờ chốt ca của bạn là ${shiftTime}`);
               return res.end('ok');
             }
 
             // Xử lý lệnh /giove
             if (msg === '/giove') {
-                const shiftTime = _.get(db, `data.shifts.${today}.${username}`);
+              const shiftTime = db.data.shifts[today]?.[username];
               if (!shiftTime) {
                 await sendMessage(chatId, '⚠️ Bạn chưa đặt giờ chốt ca hôm nay.');
                 return res.end('ok');
               }
               const [h, m] = shiftTime.split(':').map(Number);
-              const now = moment();
-              const shiftDate = moment.tz({ hour: h, minute: m }, 'Asia/Ho_Chi_Minh');
-              const diff = shiftDate.diff(now);
+              
+              // Lấy thời gian hiện tại theo múi giờ VN
+              const now = moment().tz(TIME_ZONE);
+              // Tạo thời gian chốt ca trong múi giờ VN
+              const shiftDate = moment.tz(
+                `${now.format('YYYY-MM-DD')} ${shiftTime}`,
+                'YYYY-MM-DD HH:mm',
+                TIME_ZONE
+              );
+              // Tính chênh lệch thời gian (phút)
+              const diff = shiftDate.diff(now, 'minutes');
 
               if (diff <= 0) {
                 await sendMessage(chatId, '🎉 Đã tới giờ về rồi!');
                 return res.end('ok');
               }
 
-              const mins = Math.floor(diff / 60000);
-              const hours = Math.floor(mins / 60);
-              const minutes = mins % 60;
+              const hours = Math.floor(diff / 60);
+              const minutes = diff % 60;
               await sendMessage(chatId, `⏳ Còn khoảng ${hours} giờ ${minutes} phút nữa là tới giờ về (${shiftTime})`);
               return res.end('ok');
             }
@@ -114,10 +132,9 @@ const db = new Low(adapter, { shifts: {} });
       }
     }
 
-    // Thiết lập webhook (chỉ chạy 1 lần khi khởi động)
+    // Thiết lập webhook
     async function setWebhook() {
       try {
-        // Thay YOUR_NGROK_URL bằng URL từ ngrok
         const webhookUrl = process.env.WEBHOOK_URL || 'YOUR_NGROK_URL';
         const response = await fetch(`${API}/setWebhook?url=${webhookUrl}`);
         const result = await response.json();
@@ -127,7 +144,6 @@ const db = new Low(adapter, { shifts: {} });
       }
     }
 
-    // Gọi thiết lập webhook
     if (process.env.WEBHOOK_URL) {
       await setWebhook();
     } else {
