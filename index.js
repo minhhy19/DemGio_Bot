@@ -39,6 +39,10 @@ const db = new Low(adapter, { shifts: {} });
             const username = update.message.from.username || update.message.from.first_name;
             const today = new Date().toISOString().split('T')[0];
 
+            // Log thời gian và nội dung tin nhắn
+            const now = new Date().toLocaleString('vi-VN', { timeZone: 'Asia/Ho_Chi_Minh' });
+            console.log(`[${now}] Tin nhắn từ ${username}: ${msg}`);
+
             if (msg.startsWith('/ca')) {
               const parts = msg.split(' ');
               if (parts.length < 2 || !/^\d{1,2}:\d{2}$/.test(parts[1])) {
