@@ -12,7 +12,7 @@ const PORT = process.env.PORT || 3000;
 
 // Khởi tạo lowdb
 const adapter = new JSONFile('db.json');
-const db = new Low(adapter, {});
+const db = new Low(adapter, { shifts: {} });
 
 // Khởi tạo dữ liệu mặc định
 (async () => {
